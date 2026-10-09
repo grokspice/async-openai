@@ -578,19 +578,24 @@ pub enum ChatCompletionToolChoiceOption {
     Mode(ToolChoiceOptions),
 }
 
+/// Constrains the tools available to the model to a pre-defined set.
+///
+/// `allowed_tools` is one object carrying the `mode` and the `tools`, as the API documents it:
+/// `{"type": "allowed_tools", "allowed_tools": {"mode": "auto", "tools": [...]}}`.
 #[derive(Clone, Serialize, Default, Debug, Deserialize, PartialEq, ToSchema)]
 pub struct ChatCompletionAllowedToolsChoice {
-    pub allowed_tools: Vec<ChatCompletionAllowedTools>,
+    pub allowed_tools: ChatCompletionAllowedTools,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ToolChoiceAllowedMode {
+    #[default]
     Auto,
     Required,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, ToSchema)]
 pub struct ChatCompletionAllowedTools {
     /// Constrains the tools available to the model to a pre-defined set.
     ///

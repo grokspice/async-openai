@@ -1,6 +1,7 @@
 use async_openai::types::chat::{
     ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
-    ChatCompletionStreamOptions, CreateChatCompletionRequest, CreateChatCompletionRequestArgs,
+    ChatCompletionStreamOptions, ChatCompletionToolChoiceOption, CreateChatCompletionRequest,
+    CreateChatCompletionRequestArgs, ToolChoiceAllowedMode,
 };
 
 #[test]
@@ -59,4 +60,42 @@ fn stream_options_none_fields_not_serialized() {
     // Test roundtrip deserialization
     let deserialized: ChatCompletionStreamOptions = serde_json::from_str(&serialized).unwrap();
     assert_eq!(stream_options, deserialized);
+}
+
+/// `tool_choice` of type `allowed_tools` as the OpenAI API documents it
+/// (`ChatCompletionAllowedToolsChoice` in `openapi.documented.yml`): `allowed_tools` is one
+/// object holding `mode` and `tools`, not an array of them.
+#[test]
+fn allowed_tools_tool_choice_takes_the_documented_object_shape() {
+    let documented = serde_json::json!({
+        "type": "allowed_tools",
+        "allowed_tools": {
+            "mode": "required",
+            "tools": [{ "type": "function", "function": { "name": "get_weather" } }]
+        }
+    });
+
+    let choice: ChatCompletionToolChoiceOption = serde_json::from_value(documented.clone())
+        .expect("the documented allowed_tools shape deserializes");
+    let ChatCompletionToolChoiceOption::AllowedTools(allowed) = &choice else {
+        panic!("deserialized as {choice:?}");
+    };
+    assert_eq!(allowed.allowed_tools.mode, ToolChoiceAllowedMode::Required);
+    assert_eq!(
+        allowed.allowed_tools.tools,
+        vec![serde_json::json!({ "type": "function", "function": { "name": "get_weather" } })]
+    );
+    assert_eq!(
+        serde_json::to_value(&choice).expect("serializes"),
+        documented,
+        "the choice serializes back to the documented shape"
+    );
+
+    let request: CreateChatCompletionRequest = serde_json::from_value(serde_json::json!({
+        "model": "gpt-4o-mini",
+        "messages": [{ "role": "user", "content": "What is the weather in Paris?" }],
+        "tool_choice": documented
+    }))
+    .expect("a request carrying the documented allowed_tools shape deserializes");
+    assert_eq!(request.tool_choice, Some(choice));
 }
